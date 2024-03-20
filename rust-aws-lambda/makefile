@@ -29,4 +29,7 @@ invoke:
   		--output-format json \
   		rust-aws-lambda
 
+watch:
+	cargo lambda watch		
+
 all: format lint test run
