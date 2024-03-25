@@ -27,6 +27,11 @@ invoke:
   		--data-ascii '{"command": "hi"}' \
   		--output-format json \
   		rust-aws-lambda
+print:
+	cargo lambda invoke --remote \
+  		--data-ascii '{"command": "print_db"}' \
+  		--output-format json \
+  		rust-aws-lambda
 
 watch:
 	cargo lambda watch		

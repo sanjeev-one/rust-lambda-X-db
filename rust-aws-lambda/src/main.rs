@@ -1,6 +1,6 @@
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use rusoto_core::Region;
-use rusoto_dynamodb::{DynamoDb, DynamoDbClient, PutItemInput, AttributeValue, ScanInput};
+use rusoto_dynamodb::{AttributeValue, DynamoDb, DynamoDbClient, PutItemInput, ScanInput};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -18,7 +18,10 @@ struct Response {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).without_time().init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .without_time()
+        .init();
 
     let func = service_fn(my_handler);
     lambda_runtime::run(func).await?;
@@ -30,11 +33,26 @@ async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
     Ok(())
 }
 
-async fn log_command(command: String, request_id: String) -> Result<(), Box<dyn StdError + Send + Sync>> {
+async fn log_command(
+    command: String,
+    request_id: String,
+) -> Result<(), Box<dyn StdError + Send + Sync>> {
     let client = DynamoDbClient::new(Region::default());
     let mut item = HashMap::new();
-    item.insert("request_id".to_string(), AttributeValue { s: Some(request_id), ..Default::default() });
-    item.insert("command".to_string(), AttributeValue { s: Some(command), ..Default::default() });
+    item.insert(
+        "request_id".to_string(),
+        AttributeValue {
+            s: Some(request_id),
+            ..Default::default()
+        },
+    );
+    item.insert(
+        "command".to_string(),
+        AttributeValue {
+            s: Some(command),
+            ..Default::default()
+        },
+    );
 
     let put_request = PutItemInput {
         table_name: "my-table".to_string(),
@@ -45,18 +63,26 @@ async fn log_command(command: String, request_id: String) -> Result<(), Box<dyn 
     client.put_item(put_request).await?;
     Ok(())
 }
-
 async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
-    let mut command = event.payload.command.clone();
+    let command = event.payload.command.clone();
     let request_id = event.context.request_id.clone();
-    // Decide when to call print_db_contents based on the command or other conditions
-    if command == "print_db" { // Example condition: check if the command is to print DB contents
-        command += r#"db printed"#; 
-        // Call print_db_contents and await its completion
-        if let Err(e) = print_db_contents().await {
-            // Handle error if print_db_contents fails, possibly logging the error or returning an error response
-            eprintln!("Error printing DB contents: {}", e); // Log the error
-            // You might choose to return an error response or continue execution
+
+    let mut response_message = format!("Command '{}' executed!", command);
+
+    // Check if the command is to print DB contents
+    if command == "print_db" {
+        match print_db_contents().await {
+            Ok(db_contents) => {
+                // Append the DB contents to the response message
+                response_message = format!("{} DB Contents: {}", response_message, db_contents);
+            }
+            Err(e) => {
+                eprintln!("Error printing DB contents: {}", e);
+                return Err(lambda_runtime::Error::from(format!(
+                    "Failed to print DB contents: {}",
+                    e
+                )));
+            }
         }
     }
 
@@ -65,10 +91,9 @@ async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
         return Err(lambda_runtime::Error::from(e.to_string()));
     }
 
-    // Response to return after handling the command
     let resp = Response {
         req_id: request_id,
-        msg: format!("Command '{}' executed!", command),
+        msg: response_message,
     };
 
     Ok(resp)
@@ -76,16 +101,19 @@ async fn my_handler(event: LambdaEvent<Request>) -> Result<Response, Error> {
 
 // Utility function to print contents of the DynamoDB table
 // Note: This should be adjusted according to where and how you intend to call it
-async fn print_db_contents() -> Result<(), Box<dyn StdError + Send + Sync>> {
+async fn print_db_contents() -> Result<String, Box<dyn StdError + Send + Sync>> {
     let client = DynamoDbClient::new(Region::default());
-
     let scan_request = ScanInput {
         table_name: "my-table".to_string(),
         ..Default::default()
     };
 
     let result = client.scan(scan_request).await?;
-    println!("{:?}", result.items);
+    // Convert the result into a string
+    let items_str = match result.items {
+        Some(items) => format!("{:?}", items),
+        None => "No items found".to_string(),
+    };
 
-    Ok(())
+    Ok(items_str)
 }
