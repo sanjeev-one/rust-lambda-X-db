@@ -4,7 +4,7 @@ This Rust project defines an AWS Lambda function designed to log commands receiv
 
 ## Features
 
-- **Log Commands:** Logs each command received through a Lambda event to a DynamoDB table.
+- **Log Commands:** Logs each command received through a Lambda event to a DynamoDB table and AWS cloudwatch. AWS X-Ray is also enabled.
 - **Print Database Contents:** On receiving a specific command (`print_db`), the Lambda function scans the specified DynamoDB table and returns its contents as part of the response message.
 
 ## Requirements
