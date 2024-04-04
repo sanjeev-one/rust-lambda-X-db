@@ -24,7 +24,7 @@ deploy:
 
 invoke:
 	cargo lambda invoke --remote \
-  		--data-ascii '{"command": "hi"}' \
+  		--data-ascii '{"command": "hello tihs is a test can xray see this"}' \
   		--output-format json \
   		rust-aws-lambda
 print:
